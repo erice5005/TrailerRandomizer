@@ -3,11 +3,14 @@ package imdb
 
 import (
 	"net/http"
+	"log"
 	"io/ioutil"
 )
 
 
 func NewRequest(url, method string, body []byte) *http.Request {
+	log.Printf(": %v\n", url)
+
 	var req *http.Request
 
 	switch method {

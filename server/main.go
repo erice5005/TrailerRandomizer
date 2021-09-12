@@ -11,7 +11,7 @@ import (
 	// "os"
 	// "encoding/json"
 	"math/rand"
-	// "time"
+	"time"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -41,6 +41,8 @@ func main() {
 }
 
 func (s *Server) GetTrailer(w http.ResponseWriter, r *http.Request) {
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	// keyword = r.URL.Query().Get("keyword")
 	keywords := []string{
 		"dramas",
@@ -73,7 +75,8 @@ func (s *Server) GetTrailer(w http.ResponseWriter, r *http.Request) {
 
 	for _, ix := range items {
 		rx, _ := strconv.Atoi(ix.ImDbRating)
-		if rx > 7 {
+		if rx > 5 {
+			log.Printf("ID: %v, Item: %v\n", ix.ID, ix.Title)
 			candidates = append(candidates, ix)
 		}
 	}

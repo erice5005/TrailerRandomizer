@@ -62,7 +62,7 @@ func NewClient() *IMDBClient {
 	return &IMDBClient{
 		publicKey: keys["PublicKey"],
 		rootUrl: keys["ImdbRootUrl"],
-		lang: "English",
+		lang: "en",
 		requests: &RequestTracking{
 			requests: rsConv,
 			limit: rlConv,
@@ -76,6 +76,7 @@ func (c *IMDBClient) GetURL(path, subpath string, options []string) string {
 		ret = ret + "/"+ subpath
 	}
 	if len(options) > 0 {
+		ret = ret + "/"
 		for i, opt := range options {
 			ret += opt
 			if i < len(options) - 1 {
