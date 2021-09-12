@@ -46,7 +46,7 @@ func (s *Server) GetTrailer(w http.ResponseWriter, r *http.Request) {
 		parameters[qx] = r.URL.Query().Get(qx)
 	}
 
-	resp, err := ott.GetResultsByGenre(s.rx)
+	resp, err := ott.GetResultsByGenre(s.rx, parameters["genre"])
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -59,35 +59,21 @@ func (s *Server) GetTrailer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	targetResult := Response.Results[resultIndex]
-	
+
 	time.Sleep(2 * time.Second)
 	// marshed, _ := json.Marshal(targetResult)
 
 
-	u, err =  url.Parse("https://ott-details.p.rapidapi.com/getadditionalDetails")
-	if err != nil {
-		log.Fatal(err)
-	}
-	q = u.Query()
-	q.Set("imdbid", targetResult.Imdbid)
-	u.RawQuery = q.Encode()
-	resp, err = s.rx.Execute(u.String(), "GET")
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-   		w.Write([]byte("500 - Something bad happened!"))
-	}
-
-	var trailer models.TrailerResult
-	err = json.Unmarshal(resp, &trailer)
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-   		w.Write([]byte("500 - Something bad happened!"))
-	}
-
 	
+	trailer, err := ott.GetAdditionalInfo(s.rx, targetResult.Imdbid)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+   		w.Write([]byte("500 - Something bad happened!"))
+	}
 
-    w.Write(resp)
+
+	marshed, _ := json.Marshal(trailer)
+
+    w.Write(marshed)
 
 }
