@@ -3,29 +3,33 @@ package main
 import (
 	"github.com/gorilla/mux"
 	"net/http"
-	"github.com/erice5005/trailerrandomizer/requests"
-	"github.com/erice5005/trailerrandomizer/models"
-	ott "github.com/erice5005/trailerrandomizer/ott-api"
+	// "github.com/erice5005/trailerrandomizer/requests"
+	// "github.com/erice5005/trailerrandomizer/models"
+	imdb "github.com/erice5005/trailerrandomizer/imdb"
 	// "net/url"
-	// "log"
-	"os"
+	"log"
+	// "os"
 	// "encoding/json"
-	// "math/rand"
-	"time"
+	"math/rand"
+	// "time"
+	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type Server struct {
-	rx *requests.RClient
-	lastRequest time.Time
-	requestsPerSecond int
+	rx *imdb.IMDBClient
 }
 
 func main() {
 
+	err := godotenv.Load()
+	if err != nil {
+		panic(err)
+	}
+	
 	sx := &Server{
-		rx: requests.NewClient("ott-details.p.rapidapi.com", os.Getenv("api-key")),
-		lastRequest: time.Now(),
-		requestsPerSecond: 1,
+		rx: imdb.NewClient(),	
 	}
 
 	router := mux.NewRouter()
@@ -37,74 +41,65 @@ func main() {
 }
 
 func (s *Server) GetTrailer(w http.ResponseWriter, r *http.Request) {
-	expectedParams := []string{
-		"genre",
+	// keyword = r.URL.Query().Get("keyword")
+	keywords := []string{
+		"dramas",
+		"romantic",
 	}
+	// if err != nil {
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	w.Write([]byte("500 - Something bad happened!"))
+	// }
 
-	parameters := make(map[string]string)
-
-	for _, qx := range expectedParams {
-		parameters[qx] = r.URL.Query().Get(qx)
-	}
-
-	var trailer models.TrailerResult 
-	var err error
-	trailer, err = s.GetRandomTrailer(parameters["genre"])
-	for len(trailer.TrailerURL) < 1 {
-		
+	items := make([]*imdb.KeywordItem, 0)
+	
+	for _, kx := range keywords {
+		dataset, err := s.rx.GetByKeywordID(kx)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("500 - Something bad happened!"))
 		}
-		time.Sleep(1 * time.Second)
+		// log.Printf("Dataset: %v\n", dataset)
+		items = append(items, dataset.Items...)
 	}
 
+	if len(items) == 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Something bad happened!"))
+		return
+	}
 
+	candidates := make([]*imdb.KeywordItem, 0)
 
-    w.Write([]byte(trailer.TrailerURL[0]))
+	for _, ix := range items {
+		rx, _ := strconv.Atoi(ix.ImDbRating)
+		if rx > 7 {
+			candidates = append(candidates, ix)
+		}
+	}
 
-}
+	// log.Printf("Candidates: %v\n", candidates)
 
-func (s *Server) GetRandomTrailer(genre string) (models.TrailerResult, error) {
-	
-	var err error
+	if len(candidates) == 0 {
+		// if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Something bad happened!"))
+		return
+		// }
+	}
 
-	resp, err := ott.GetResultsByGenre(s.rx, genre, 1)
+	indx := 0
+	if len(candidates) > 1 {
+		indx = rand.Intn(len(candidates)-1)
+	}
 
+	titleInfo, err := s.rx.GetTitle(candidates[indx].ID)
 	if err != nil {
-		return models.TrailerResult{}, err
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 - Something bad happened!"))
 	}
-
-	if len(resp) == 0 {
-		return models.TrailerResult{}, nil
-	}
-
-	var trailer models.TrailerResult
-
-	targetIndex := 0
-	page := 1
-	for len(trailer.TrailerURL) < 1 {
-
-		trailer, err = ott.GetAdditionalInfo(s.rx, resp[targetIndex].Imdbid)
-		if err != nil {
-			return models.TrailerResult{}, err
-		}
-		time.Sleep(1 * time.Second)
-
-		if targetIndex == len(resp) - 1 {
-			page++
-			resp, err = ott.GetResultsByGenre(s.rx, genre, page)
-
-			if err != nil {
-				return models.TrailerResult{}, err
-			}
-		}
-		targetIndex++
-	}
-
-	time.Sleep(1 * time.Second)
 	
-	
+	log.Printf("Title Info: %v\n", titleInfo)
+    w.Write([]byte(titleInfo.Trailer.Link))
 
-	return trailer, nil
 }
