@@ -28,5 +28,5 @@ type TrailerResult struct {
 	Quotes      []interface{} `json:"quotes"`
 	PlotSummary string        `json:"plotSummary"`
 	Reviews     []interface{} `json:"reviews"`
-	TrailerURL  []interface{} `json:"trailerUrl"`
+	TrailerURL  []string `json:"trailerUrl"`
 }

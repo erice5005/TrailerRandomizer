@@ -5,11 +5,12 @@ import (
 	"net/http"
 	"github.com/erice5005/trailerrandomizer/requests"
 	"github.com/erice5005/trailerrandomizer/models"
-	"net/url"
-	"log"
+	ott "github.com/erice5005/trailerrandomizer/ott-api"
+	// "net/url"
+	// "log"
 	"os"
-	"encoding/json"
-	"math/rand"
+	// "encoding/json"
+	// "math/rand"
 	"time"
 )
 
@@ -46,34 +47,64 @@ func (s *Server) GetTrailer(w http.ResponseWriter, r *http.Request) {
 		parameters[qx] = r.URL.Query().Get(qx)
 	}
 
-	resp, err := ott.GetResultsByGenre(s.rx, parameters["genre"])
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-   		w.Write([]byte("500 - Something bad happened!"))
+	var trailer models.TrailerResult 
+	var err error
+	trailer, err = s.GetRandomTrailer(parameters["genre"])
+	for len(trailer.TrailerURL) < 1 {
+		
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("500 - Something bad happened!"))
+		}
+		time.Sleep(1 * time.Second)
 	}
 
-	resultIndex := 0
-	if len(Response.Results) > 0 {
-		resultIndex = rand.Intn(len(Response.Results) - 1)
-	}
-
-	targetResult := Response.Results[resultIndex]
-
-	time.Sleep(2 * time.Second)
-	// marshed, _ := json.Marshal(targetResult)
 
 
+    w.Write([]byte(trailer.TrailerURL[0]))
+
+}
+
+func (s *Server) GetRandomTrailer(genre string) (models.TrailerResult, error) {
 	
-	trailer, err := ott.GetAdditionalInfo(s.rx, targetResult.Imdbid)
+	var err error
+
+	resp, err := ott.GetResultsByGenre(s.rx, genre, 1)
+
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-   		w.Write([]byte("500 - Something bad happened!"))
+		return models.TrailerResult{}, err
 	}
 
+	if len(resp) == 0 {
+		return models.TrailerResult{}, nil
+	}
 
-	marshed, _ := json.Marshal(trailer)
+	var trailer models.TrailerResult
 
-    w.Write(marshed)
+	targetIndex := 0
+	page := 1
+	for len(trailer.TrailerURL) < 1 {
 
+		trailer, err = ott.GetAdditionalInfo(s.rx, resp[targetIndex].Imdbid)
+		if err != nil {
+			return models.TrailerResult{}, err
+		}
+		time.Sleep(1 * time.Second)
+
+		if targetIndex == len(resp) - 1 {
+			page++
+			resp, err = ott.GetResultsByGenre(s.rx, genre, page)
+
+			if err != nil {
+				return models.TrailerResult{}, err
+			}
+		}
+		targetIndex++
+	}
+
+	time.Sleep(1 * time.Second)
+	
+	
+
+	return trailer, nil
 }
